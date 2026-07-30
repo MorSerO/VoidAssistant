@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base dark theme overrides */
+body {
+  margin: 0;
+  padding: 0;
+  background: #0A0A0A;
+  color: #E5E5E5;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2A2A2A;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3A3A3A;
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #E5E5E5;
+}
+
+/* Remove default focus outlines, use custom ones */
+:focus-visible {
+  outline: 1px solid #3B82F6;
+  outline-offset: 2px;
+}
+
+/* Smooth transitions for mode switching */
+.mode-transition {
+  transition: opacity 150ms ease-in-out;
+}
+
+/* Prevent text selection on UI elements */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
