@@ -2,7 +2,7 @@
   "name": "void-ai-assistant",
   "version": "0.1.0",
   "description": "Void AI Assistant - Multi-mode desktop AI agent",
-  "main": "dist/main/index.js",
+  "main": "dist/main/main/index.js",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "vite --config vite.renderer.config.ts",

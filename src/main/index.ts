@@ -17,7 +17,7 @@ function createWindow(): void {
     backgroundColor: '#0A0A0A',
     title: 'Void AI Assistant',
     webPreferences: {
-      preload: path.join(__dirname, '../preload/index.js'),
+      preload: path.join(__dirname, '../../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -30,7 +30,7 @@ function createWindow(): void {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../../../dist/renderer/index.html'));
   }
 
   mainWindow.once('ready-to-show', () => {

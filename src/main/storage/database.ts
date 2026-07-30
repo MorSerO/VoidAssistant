@@ -3,6 +3,9 @@ import path from 'path';
 import { app } from 'electron';
 import { v4 as uuidv4 } from 'uuid';
 
+// Type alias for database rows
+type DbRow = Record<string, unknown>;
+
 let db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
@@ -128,8 +131,8 @@ function migrate(db: Database.Database): void {
 
 function getSchemaVersion(db: Database.Database): number {
   try {
-    const row = db.prepare("SELECT value FROM settings WHERE key = 'schema_version'").get() as { value: string } | undefined;
-    return row ? parseInt(row.value, 10) : 0;
+    const row = db.prepare("SELECT value FROM settings WHERE key = 'schema_version'").get() as DbRow | undefined;
+    return row ? parseInt(row.value as string, 10) : 0;
   } catch {
     return 0;
   }
@@ -140,20 +143,17 @@ function setSchemaVersion(db: Database.Database, version: number): void {
 }
 
 function ensureDefaultData(db: Database.Database): void {
-  // Check if C++ module exists
   const existing = db.prepare("SELECT id FROM learning_modules WHERE is_default = 1").get();
   if (!existing) {
     const now = Date.now();
     const moduleId = uuidv4();
     const conversationId = uuidv4();
 
-    // Create default conversation
     db.prepare(`
       INSERT INTO conversations (id, title, mode, module_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `).run(conversationId, 'C++ Learning', 'learning', moduleId, now, now);
 
-    // Create default C++ module (cannot be deleted)
     db.prepare(`
       INSERT INTO learning_modules (id, name, note_files, code_style_summary, conversation_id, is_default, created_at)
       VALUES (?, ?, '[]', NULL, ?, 1, ?)
@@ -161,23 +161,32 @@ function ensureDefaultData(db: Database.Database): void {
   }
 }
 
+// Helper to safely cast .all() and .get() results
+function allRows(stmt: Database.Statement): DbRow[] {
+  return stmt.all() as DbRow[];
+}
+
+function getRow(stmt: Database.Statement): DbRow | undefined {
+  return stmt.get() as DbRow | undefined;
+}
+
 // ============================================================
 // Query Helpers - Config
 // ============================================================
 
-export function getAllConfigs(): Array<Record<string, unknown>> {
-  return getDb().prepare("SELECT * FROM api_configs ORDER BY created_at DESC").all();
+export function getAllConfigs(): DbRow[] {
+  return allRows(getDb().prepare("SELECT * FROM api_configs ORDER BY created_at DESC"));
 }
 
-export function getConfigById(id: string): Record<string, unknown> | undefined {
-  return getDb().prepare("SELECT * FROM api_configs WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+export function getConfigById(id: string): DbRow | undefined {
+  return getRow(getDb().prepare("SELECT * FROM api_configs WHERE id = ?").bind(id));
 }
 
-export function getActiveConfig(): Record<string, unknown> | undefined {
-  return getDb().prepare("SELECT * FROM api_configs WHERE is_active = 1 LIMIT 1").get() as Record<string, unknown> | undefined;
+export function getActiveConfig(): DbRow | undefined {
+  return getRow(getDb().prepare("SELECT * FROM api_configs WHERE is_active = 1 LIMIT 1"));
 }
 
-export function saveConfigRow(config: Record<string, unknown>): void {
+export function saveConfigRow(config: DbRow): void {
   getDb().prepare(`
     INSERT OR REPLACE INTO api_configs (id, name, base_url, encrypted_api_key, model, temperature, max_tokens, input_price, output_price, headers, is_active, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -215,10 +224,10 @@ export function recordUsageRow(data: {
   `).run(data.id, data.configId, data.model, data.inputTokens, data.outputTokens, data.timestamp, data.conversationId || null);
 }
 
-export function getUsageForPeriod(start: number, end: number): Array<Record<string, unknown>> {
-  return getDb().prepare(
+export function getUsageForPeriod(start: number, end: number): DbRow[] {
+  return allRows(getDb().prepare(
     "SELECT * FROM api_usage WHERE timestamp >= ? AND timestamp <= ? ORDER BY timestamp DESC"
-  ).all(start, end);
+  ).bind(start, end));
 }
 
 // ============================================================
@@ -234,19 +243,19 @@ export function createConversationRow(data: {
   `).run(data.id, data.title, data.mode, data.moduleId || null, data.createdAt, data.updatedAt);
 }
 
-export function getConversationsByMode(mode: string, moduleId?: string): Array<Record<string, unknown>> {
+export function getConversationsByMode(mode: string, moduleId?: string): DbRow[] {
   if (moduleId) {
-    return getDb().prepare(
+    return allRows(getDb().prepare(
       "SELECT * FROM conversations WHERE mode = ? AND module_id = ? ORDER BY updated_at DESC"
-    ).all(mode, moduleId);
+    ).bind(mode, moduleId));
   }
-  return getDb().prepare(
+  return allRows(getDb().prepare(
     "SELECT * FROM conversations WHERE mode = ? ORDER BY updated_at DESC"
-  ).all(mode);
+  ).bind(mode));
 }
 
-export function getConversationById(id: string): Record<string, unknown> | undefined {
-  return getDb().prepare("SELECT * FROM conversations WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+export function getConversationById(id: string): DbRow | undefined {
+  return getRow(getDb().prepare("SELECT * FROM conversations WHERE id = ?").bind(id));
 }
 
 export function updateConversationTitle(id: string, title: string): void {
@@ -277,22 +286,22 @@ export function addMessageRow(data: {
     data.toolCallId || null, data.toolName || null, data.codeSnippet || null, data.createdAt);
 }
 
-export function getMessagesByConversation(conversationId: string): Array<Record<string, unknown>> {
-  return getDb().prepare(
+export function getMessagesByConversation(conversationId: string): DbRow[] {
+  return allRows(getDb().prepare(
     "SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC"
-  ).all(conversationId);
+  ).bind(conversationId));
 }
 
 // ============================================================
 // Query Helpers - Learning Modules
 // ============================================================
 
-export function getAllModules(): Array<Record<string, unknown>> {
-  return getDb().prepare("SELECT * FROM learning_modules ORDER BY is_default DESC, created_at ASC").all();
+export function getAllModules(): DbRow[] {
+  return allRows(getDb().prepare("SELECT * FROM learning_modules ORDER BY is_default DESC, created_at ASC"));
 }
 
-export function getModuleById(id: string): Record<string, unknown> | undefined {
-  return getDb().prepare("SELECT * FROM learning_modules WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+export function getModuleById(id: string): DbRow | undefined {
+  return getRow(getDb().prepare("SELECT * FROM learning_modules WHERE id = ?").bind(id));
 }
 
 export function createModuleRow(data: {
@@ -324,12 +333,12 @@ export function deleteModuleRow(id: string): void {
 // Query Helpers - Plans
 // ============================================================
 
-export function getAllPlanRows(): Array<Record<string, unknown>> {
-  return getDb().prepare("SELECT * FROM plans ORDER BY updated_at DESC").all();
+export function getAllPlanRows(): DbRow[] {
+  return allRows(getDb().prepare("SELECT * FROM plans ORDER BY updated_at DESC"));
 }
 
-export function getPlanByIdRow(id: string): Record<string, unknown> | undefined {
-  return getDb().prepare("SELECT * FROM plans WHERE id = ?").get(id) as Record<string, unknown> | undefined;
+export function getPlanByIdRow(id: string): DbRow | undefined {
+  return getRow(getDb().prepare("SELECT * FROM plans WHERE id = ?").bind(id));
 }
 
 export function savePlanRow(data: {
@@ -350,17 +359,17 @@ export function deletePlanRow(id: string): void {
 // Query Helpers - Focus Sessions
 // ============================================================
 
-export function getFocusSessionsList(limit?: number): Array<Record<string, unknown>> {
+export function getFocusSessionsList(limit?: number): DbRow[] {
   const lim = limit || 50;
-  return getDb().prepare(
+  return allRows(getDb().prepare(
     "SELECT * FROM focus_sessions ORDER BY timestamp DESC LIMIT ?"
-  ).all(lim);
+  ).bind(lim));
 }
 
-export function getRecentFocusSessionsList(limit: number): Array<Record<string, unknown>> {
-  return getDb().prepare(
+export function getRecentFocusSessionsList(limit: number): DbRow[] {
+  return allRows(getDb().prepare(
     "SELECT * FROM focus_sessions ORDER BY timestamp DESC LIMIT ?"
-  ).all(limit);
+  ).bind(limit));
 }
 
 export function logFocusSessionRow(data: {
@@ -378,8 +387,8 @@ export function logFocusSessionRow(data: {
 // ============================================================
 
 export function getSettingRow(key: string): string | undefined {
-  const row = getDb().prepare("SELECT value FROM settings WHERE key = ?").get(key) as { value: string } | undefined;
-  return row?.value;
+  const row = getRow(getDb().prepare("SELECT value FROM settings WHERE key = ?").bind(key));
+  return row?.value as string | undefined;
 }
 
 export function setSettingRow(key: string, value: string): void {
@@ -387,5 +396,6 @@ export function setSettingRow(key: string, value: string): void {
 }
 
 export function getAllSettingRows(): Array<{ key: string; value: string }> {
-  return getDb().prepare("SELECT key, value FROM settings").all() as Array<{ key: string; value: string }>;
+  const rows = allRows(getDb().prepare("SELECT key, value FROM settings"));
+  return rows as Array<{ key: string; value: string }>;
 }
