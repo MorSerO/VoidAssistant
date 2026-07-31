@@ -7,7 +7,10 @@ import { registerAllHandlers } from './ipc-handlers';
 
 let mainWindow: BrowserWindowType | null = null;
 
-const isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
+// Trust app.isPackaged over NODE_ENV: packaged builds launched outside a
+// terminal have no NODE_ENV set, so a NODE_ENV check alone would make the
+// packaged app try to load the Vite dev server and show a black window.
+const isDev = !app.isPackaged;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
