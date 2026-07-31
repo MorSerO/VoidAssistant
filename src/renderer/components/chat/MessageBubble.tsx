@@ -60,13 +60,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isStreaming = fa
             : 'bg-void-surface text-void-text border border-void-border'
         }`}>
           {message.content && (
-            <div className="prose prose-invert prose-sm max-w-none break-words">
+            <div className="max-w-none break-words message-content">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
                   pre({ children }) {
                     return (
-                      <pre className="bg-void-bg border border-void-border rounded p-3 my-2 overflow-x-auto">
+                      <pre className="bg-[#0A0A0A] border border-void-border rounded p-3 my-2 overflow-x-auto">
                         {children}
                       </pre>
                     );
@@ -75,25 +75,46 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isStreaming = fa
                     const isInline = !className;
                     if (isInline) {
                       return (
-                        <code className="bg-void-bg px-1.5 py-0.5 rounded text-xs font-mono text-void-accent" {...props}>
+                        <code className="bg-[#0A0A0A] px-1.5 py-0.5 rounded text-xs font-mono text-void-accent" {...props}>
                           {children}
                         </code>
                       );
                     }
+                    // Fenced code block
+                    const lang = className ? className.replace('language-', '') : '';
                     return (
-                      <code className="text-xs font-mono text-void-text" {...props}>
-                        {children}
-                      </code>
+                      <div>
+                        {lang && (
+                          <div className="text-2xs text-void-muted px-1 pb-0.5 uppercase tracking-wider">
+                            {lang}
+                          </div>
+                        )}
+                        <code className="text-xs font-mono text-void-text block" {...props}>
+                          {children}
+                        </code>
+                      </div>
                     );
                   },
                   p({ children }) {
-                    return <p className="mb-2 last:mb-0">{children}</p>;
+                    return <p className="mb-2 last:mb-0 text-void-text">{children}</p>;
+                  },
+                  h1({ children }) {
+                    return <h1 className="text-lg font-medium text-void-text my-3">{children}</h1>;
+                  },
+                  h2({ children }) {
+                    return <h2 className="text-base font-medium text-void-text my-2">{children}</h2>;
+                  },
+                  h3({ children }) {
+                    return <h3 className="text-sm font-medium text-void-text my-2">{children}</h3>;
                   },
                   ul({ children }) {
-                    return <ul className="list-disc list-inside mb-2">{children}</ul>;
+                    return <ul className="list-disc list-inside mb-2 text-void-text">{children}</ul>;
                   },
                   ol({ children }) {
-                    return <ol className="list-decimal list-inside mb-2">{children}</ol>;
+                    return <ol className="list-decimal list-inside mb-2 text-void-text">{children}</ol>;
+                  },
+                  li({ children }) {
+                    return <li className="mb-0.5 text-void-text">{children}</li>;
                   },
                   blockquote({ children }) {
                     return (
@@ -102,10 +123,49 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isStreaming = fa
                       </blockquote>
                     );
                   },
+                  a({ href, children }) {
+                    return (
+                      <a href={href} className="text-void-accent hover:underline" target="_blank" rel="noopener noreferrer">
+                        {children}
+                      </a>
+                    );
+                  },
+                  table({ children }) {
+                    return (
+                      <div className="overflow-x-auto my-2">
+                        <table className="w-full border-collapse text-xs">{children}</table>
+                      </div>
+                    );
+                  },
+                  th({ children }) {
+                    return <th className="border border-void-border bg-void-surface px-3 py-1.5 text-left text-void-secondary font-medium">{children}</th>;
+                  },
+                  td({ children }) {
+                    return <td className="border border-void-border px-3 py-1.5 text-void-text">{children}</td>;
+                  },
+                  hr() {
+                    return <hr className="border-void-border my-3" />;
+                  },
+                  strong({ children }) {
+                    return <strong className="font-medium text-void-text">{children}</strong>;
+                  },
+                  em({ children }) {
+                    return <em className="italic text-void-text">{children}</em>;
+                  },
                 }}
               >
                 {message.content}
               </ReactMarkdown>
+            </div>
+          )}
+
+          {/* Code snippet (if user attached one) */}
+          {message.codeSnippet && (
+            <div className="mt-2 rounded border border-void-border bg-[#0A0A0A] p-2">
+              <div className="text-2xs text-void-muted mb-1 uppercase tracking-wider">Attached Code</div>
+              <pre className="text-xs font-mono text-void-text whitespace-pre-wrap overflow-x-auto max-h-48">
+                {message.codeSnippet}
+              </pre>
             </div>
           )}
 

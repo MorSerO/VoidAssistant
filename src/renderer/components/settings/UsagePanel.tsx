@@ -43,14 +43,14 @@ const UsagePanel: React.FC = () => {
           <div className="text-lg font-mono text-void-text">
             {formatTokens(summary?.sessionTokens || 0)}
           </div>
-          <div className="text-2xs text-void-border">tokens</div>
+          <div className="text-2xs text-void-muted">tokens</div>
         </div>
         <div className="rounded border border-void-border bg-void-bg p-3 text-center">
           <div className="text-xs text-void-secondary mb-1">Today</div>
           <div className="text-lg font-mono text-void-text">
             {formatTokens(summary?.todayTokens || 0)}
           </div>
-          <div className="text-2xs text-void-border">
+          <div className="text-2xs text-void-muted">
             {formatCost(summary?.todayCost || 0)}
           </div>
         </div>
@@ -59,7 +59,7 @@ const UsagePanel: React.FC = () => {
           <div className={`text-lg font-mono ${summary?.budgetExceeded ? 'text-void-error' : 'text-void-text'}`}>
             {formatTokens(summary?.monthTokens || 0)}
           </div>
-          <div className="text-2xs text-void-border">
+          <div className="text-2xs text-void-muted">
             {formatCost(summary?.monthCost || 0)}
           </div>
         </div>
@@ -122,7 +122,7 @@ const UsagePanel: React.FC = () => {
               );
             })}
           </div>
-          <div className="flex justify-between mt-2 text-2xs text-void-border">
+          <div className="flex justify-between mt-2 text-2xs text-void-muted">
             <span>{history[0]?.date}</span>
             <span>{history[history.length - 1]?.date}</span>
           </div>

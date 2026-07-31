@@ -251,6 +251,11 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
                     analysis
                   );
                   updateModuleRow(params.moduleId, { codeStyleSummary: merged });
+                  // Notify renderer so the UI can refresh the module list
+                  mainWindow.webContents.send(IpcChannels.STYLE_SUMMARY_UPDATED, {
+                    moduleId: params.moduleId,
+                    codeStyleSummary: merged,
+                  });
                 }
               } catch {
                 // Style analysis failure is non-critical

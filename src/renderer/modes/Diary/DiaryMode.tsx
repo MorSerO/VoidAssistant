@@ -46,7 +46,7 @@ const DiaryMode: React.FC = () => {
             `}
           >
             <div className="font-medium">Today</div>
-            <div className="text-2xs text-void-border">{today}</div>
+            <div className="text-2xs text-void-muted">{today}</div>
           </button>
 
           <div className="border-t border-void-border my-1" />
@@ -64,7 +64,7 @@ const DiaryMode: React.FC = () => {
               `}
             >
               <div className="text-xs">{entry.date}</div>
-              <div className="text-2xs text-void-border truncate">{entry.preview}</div>
+              <div className="text-2xs text-void-muted truncate">{entry.preview}</div>
             </button>
           ))}
         </div>
@@ -104,7 +104,7 @@ const DiaryMode: React.FC = () => {
                         {currentDate === today ? 'Today' : currentDate}
                       </span>
                     </div>
-                    <span className="text-2xs text-void-border">
+                    <span className="text-2xs text-void-muted">
                       Diary Companion
                     </span>
                   </div>

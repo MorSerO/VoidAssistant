@@ -14,7 +14,7 @@ const Input: React.FC<InputProps> = ({ label, error, className = '', ...props })
       <input
         className={`
           w-full rounded border border-void-border bg-void-bg px-3 py-2
-          text-sm text-void-text placeholder:text-void-border
+          text-sm text-void-text placeholder:text-void-muted
           transition-colors focus:border-void-accent focus:outline-none
           ${error ? 'border-void-error' : ''}
           ${className}
@@ -44,7 +44,7 @@ export const Textarea: React.FC<TextareaProps> = ({ label, error, className = ''
       <textarea
         className={`
           w-full resize-none rounded border border-void-border bg-void-bg px-3 py-2
-          text-sm text-void-text placeholder:text-void-border
+          text-sm text-void-text placeholder:text-void-muted
           transition-colors focus:border-void-accent focus:outline-none
           ${error ? 'border-void-error' : ''}
           ${className}

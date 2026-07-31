@@ -62,7 +62,7 @@ const ApiConfigList: React.FC<ApiConfigListProps> = ({ onAdd, onEdit }) => {
                     {config.isActive && <Badge variant="accent">Active</Badge>}
                   </div>
                   <p className="text-xs text-void-secondary truncate">{config.model}</p>
-                  <p className="text-xs text-void-border truncate">{config.baseUrl}</p>
+                  <p className="text-xs text-void-muted truncate">{config.baseUrl}</p>
                 </div>
 
                 <div className="flex items-center gap-1 ml-3">

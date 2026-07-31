@@ -97,7 +97,7 @@ const PlanningMode: React.FC = () => {
               `}
             >
               <div className="truncate">{plan.title}</div>
-              <div className="text-2xs text-void-border">
+              <div className="text-2xs text-void-muted">
                 {plan.items.filter(i => i.completed).length}/{plan.items.length} done
               </div>
             </button>
@@ -114,7 +114,7 @@ const PlanningMode: React.FC = () => {
                 onChange={(e) => setNewPlanTitle(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreatePlan()}
                 placeholder="Plan title..."
-                className="flex-1 rounded border border-void-border bg-void-bg px-2 py-1 text-xs text-void-text placeholder:text-void-border focus:border-void-accent focus:outline-none"
+                className="flex-1 rounded border border-void-border bg-void-bg px-2 py-1 text-xs text-void-text placeholder:text-void-muted focus:border-void-accent focus:outline-none"
                 autoFocus
               />
               <Button size="sm" onClick={handleCreatePlan}>Add</Button>
@@ -175,7 +175,7 @@ const PlanningMode: React.FC = () => {
                           className="mt-0.5 accent-void-accent"
                         />
                         <div className="flex-1 min-w-0">
-                          <p className={`text-sm ${item.completed ? 'line-through text-void-border' : 'text-void-text'}`}>
+                          <p className={`text-sm ${item.completed ? 'line-through text-void-muted' : 'text-void-text'}`}>
                             {item.content}
                           </p>
                           {item.aiNote && (
@@ -186,15 +186,16 @@ const PlanningMode: React.FC = () => {
                           <select
                             value={item.priority}
                             onChange={(e) => updateItem(activePlan.id, item.id, { priority: e.target.value as PlanItem['priority'] })}
-                            className={`rounded border border-void-border bg-void-surface px-1.5 py-0.5 text-2xs ${priorityColors[item.priority]} focus:outline-none`}
+                            className={`rounded border border-void-border bg-void-surface px-1.5 py-0.5 text-2xs ${priorityColors[item.priority]} focus:outline-none appearance-none cursor-pointer`}
+                            style={{ colorScheme: 'dark' }}
                           >
-                            <option value="high">High</option>
-                            <option value="medium">Medium</option>
-                            <option value="low">Low</option>
+                            <option value="high" className="bg-void-surface text-void-error">High</option>
+                            <option value="medium" className="bg-void-surface text-void-warning">Medium</option>
+                            <option value="low" className="bg-void-surface text-void-secondary">Low</option>
                           </select>
                           <button
                             onClick={() => deleteItem(activePlan.id, item.id)}
-                            className="text-void-border hover:text-void-error"
+                            className="text-void-muted hover:text-void-error"
                           >
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                               <line x1="18" y1="6" x2="6" y2="18" />
@@ -215,7 +216,7 @@ const PlanningMode: React.FC = () => {
                     onChange={(e) => setNewItemContent(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
                     placeholder="Add new item..."
-                    className="flex-1 rounded border border-void-border bg-void-bg px-3 py-2 text-sm text-void-text placeholder:text-void-border focus:border-void-accent focus:outline-none"
+                    className="flex-1 rounded border border-void-border bg-void-bg px-3 py-2 text-sm text-void-text placeholder:text-void-muted focus:border-void-accent focus:outline-none"
                   />
                   <Button size="sm" onClick={handleAddItem}>Add</Button>
                 </div>

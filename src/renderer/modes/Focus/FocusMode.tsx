@@ -158,7 +158,7 @@ const FocusMode: React.FC = () => {
           onChange={(e) => setPurpose(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && purpose && handleStart()}
           placeholder="E.g., Reading, Coding, Writing..."
-          className="w-80 rounded border border-void-border bg-void-surface px-4 py-3 text-center text-sm text-void-text placeholder:text-void-border focus:border-void-accent focus:outline-none"
+          className="w-80 rounded border border-void-border bg-void-surface px-4 py-3 text-center text-sm text-void-text placeholder:text-void-muted focus:border-void-accent focus:outline-none"
           autoFocus
         />
         <div className="flex items-center gap-3">
@@ -235,7 +235,7 @@ const FocusMode: React.FC = () => {
           <Button variant="ghost" onClick={endSession}>End Session</Button>
         </div>
 
-        <p className="text-xs text-void-border">Press Esc to end session</p>
+        <p className="text-xs text-void-muted">Press Esc to end session</p>
       </div>
     );
   }
@@ -257,7 +257,7 @@ const FocusMode: React.FC = () => {
                 key={star}
                 onClick={() => setRating(star)}
                 className={`text-3xl transition-colors ${
-                  star <= rating ? 'text-void-warning' : 'text-void-border'
+                  star <= rating ? 'text-void-warning' : 'text-void-muted'
                 } hover:text-void-warning`}
               >
                 ★

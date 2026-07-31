@@ -27,7 +27,7 @@ const TitleBar: React.FC = () => {
         <span
           className="h-1.5 w-1.5 rounded-full"
           style={{
-            backgroundColor: sessionUsage.tokens > 0 ? '#3B82F6' : '#2A2A2A',
+            backgroundColor: sessionUsage.tokens > 0 ? '#3B82F6' : 'rgba(255,255,255,0.2)',
           }}
           title={sessionUsage.tokens > 0 ? 'API Connected' : 'No API activity'}
         />

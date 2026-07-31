@@ -54,22 +54,31 @@ const ChatInput: React.FC<ChatInputProps> = ({
     <div className="border-t border-void-border bg-void-bg p-3">
       {/* Code snippet field (for C++ module) */}
       {showCodeField && (
-        <div className="mb-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-void-secondary">Code Snippet (for style analysis)</span>
+        <div className="mb-2 rounded border border-void-accent/30 bg-void-accent/5 p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-void-accent">
+                <polyline points="16 18 22 12 16 6" />
+                <polyline points="8 6 2 12 8 18" />
+              </svg>
+              <span className="text-xs font-medium text-void-accent">C++ Code Style Analysis</span>
+            </div>
             <button
               onClick={() => setShowCodeField(false)}
-              className="text-xs text-void-secondary hover:text-void-text"
+              className="text-xs text-void-secondary hover:text-void-text transition-colors"
             >
-              Remove
+              ✕ Remove
             </button>
           </div>
+          <p className="text-2xs text-void-muted mb-2">
+            Paste your C++ code below. The AI will analyze your coding style (indentation, naming, braces, etc.) and learn to match it in future responses.
+          </p>
           <textarea
             value={codeSnippet}
             onChange={(e) => setCodeSnippet(e.target.value)}
-            placeholder="Paste C++ code here..."
-            className="w-full resize-none rounded border border-void-border bg-void-surface px-3 py-2 text-xs font-mono text-void-text placeholder:text-void-border focus:border-void-accent focus:outline-none"
-            rows={4}
+            placeholder="// Paste your C++ code here..."
+            className="w-full resize-none rounded border border-void-border bg-void-surface px-3 py-2 text-xs font-mono text-void-text placeholder:text-void-muted focus:border-void-accent focus:outline-none"
+            rows={6}
           />
         </div>
       )}
@@ -78,10 +87,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
         {showCodeButton && !showCodeField && (
           <button
             onClick={() => setShowCodeField(true)}
-            title="Attach code snippet"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-void-secondary hover:text-void-text hover:bg-void-border/20 transition-colors"
+            title="Attach C++ code for style analysis"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded text-void-accent hover:text-white hover:bg-void-accent/30 transition-colors border border-void-accent/30"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <polyline points="16 18 22 12 16 6" />
               <polyline points="8 6 2 12 8 18" />
             </svg>
@@ -95,7 +104,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           rows={1}
-          className="flex-1 resize-none rounded border border-void-border bg-void-surface px-3 py-2 text-sm text-void-text placeholder:text-void-border focus:border-void-accent focus:outline-none"
+          className="flex-1 resize-none rounded border border-void-border bg-void-surface px-3 py-2 text-sm text-void-text placeholder:text-void-muted focus:border-void-accent focus:outline-none"
           disabled={isStreaming}
         />
 

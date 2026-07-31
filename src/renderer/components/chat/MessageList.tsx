@@ -22,7 +22,7 @@ const MessageList: React.FC<MessageListProps> = ({
       {messages.length === 0 && !isStreaming && (
         <div className="py-16 text-center">
           <p className="text-sm text-void-secondary">Start a conversation</p>
-          <p className="mt-1 text-xs text-void-border">Send a message to begin</p>
+          <p className="mt-1 text-xs text-void-muted">Send a message to begin</p>
         </div>
       )}
 

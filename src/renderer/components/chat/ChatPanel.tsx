@@ -10,6 +10,7 @@ interface ChatPanelProps {
   placeholder?: string;
   header?: React.ReactNode;
   showConversationList?: boolean;
+  showCodeButton?: boolean;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -18,6 +19,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   placeholder = 'Type your message...',
   header,
   showConversationList = true,
+  showCodeButton: showCodeButtonOverride,
 }) => {
   const messages = useChatStore((s) => s.messages);
   const isStreaming = useChatStore((s) => s.isStreaming);
@@ -112,7 +114,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         onCancel={cancelStream}
         isStreaming={isStreaming}
         placeholder={placeholder}
-        showCodeButton={mode === 'learning'}
+        showCodeButton={showCodeButtonOverride ?? (mode === 'learning')}
       />
     </div>
   );

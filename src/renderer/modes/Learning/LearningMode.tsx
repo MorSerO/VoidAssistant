@@ -20,9 +20,18 @@ const LearningMode: React.FC = () => {
   const [newModuleName, setNewModuleName] = useState('');
   const [showNewModule, setShowNewModule] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [styleExpanded, setStyleExpanded] = useState(false);
 
   useEffect(() => {
     fetchModules();
+  }, [fetchModules]);
+
+  // Listen for code style summary updates from the main process
+  useEffect(() => {
+    const unsub = window.electronAPI.onStyleSummaryUpdated(() => {
+      fetchModules();
+    });
+    return () => unsub();
   }, [fetchModules]);
 
   // Load conversation when module changes
@@ -78,7 +87,7 @@ const LearningMode: React.FC = () => {
               onChange={(e) => setNewModuleName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               placeholder="Module name..."
-              className="w-full rounded border border-void-border bg-void-bg px-2 py-1.5 text-xs text-void-text placeholder:text-void-border focus:border-void-accent focus:outline-none"
+              className="w-full rounded border border-void-border bg-void-bg px-2 py-1.5 text-xs text-void-text placeholder:text-void-muted focus:border-void-accent focus:outline-none"
               autoFocus
             />
           </div>
@@ -123,13 +132,13 @@ const LearningMode: React.FC = () => {
         {activeModule && (
           <div className="border-t border-void-border p-3">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-2xs font-medium uppercase tracking-wider text-void-border">Notes</h4>
+              <h4 className="text-2xs font-medium uppercase tracking-wider text-void-muted">Notes</h4>
               <Button size="sm" variant="ghost" onClick={handleBindFile}>
                 Add
               </Button>
             </div>
             {activeModule.noteFiles.length === 0 ? (
-              <p className="text-2xs text-void-border">No notes bound</p>
+              <p className="text-2xs text-void-muted">No notes bound</p>
             ) : (
               <div className="space-y-1">
                 {activeModule.noteFiles.map((file, i) => (
@@ -139,7 +148,7 @@ const LearningMode: React.FC = () => {
                     </span>
                     <button
                       onClick={() => unbindNoteFile(activeModule.id, file)}
-                      className="text-void-border hover:text-void-error ml-1"
+                      className="text-void-muted hover:text-void-error ml-1"
                     >
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <line x1="18" y1="6" x2="6" y2="18" />
@@ -151,11 +160,53 @@ const LearningMode: React.FC = () => {
               </div>
             )}
 
-            {/* Code style indicator for C++ */}
-            {activeModule.isDefault && activeModule.codeStyleSummary && (
-              <div className="mt-2 rounded border border-void-border bg-void-bg p-2">
-                <p className="text-2xs text-void-border mb-1">Code Style Profile</p>
-                <p className="text-2xs text-void-secondary line-clamp-3">{activeModule.codeStyleSummary}</p>
+            {/* Code Style Profile — shown for C++ module */}
+            {activeModule.isDefault && (
+              <div className="mt-3 rounded border border-void-accent/20 bg-void-accent/5 overflow-hidden">
+                <button
+                  onClick={() => setStyleExpanded(!styleExpanded)}
+                  className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-void-accent/10 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-void-accent">
+                      <polyline points="16 18 22 12 16 6" />
+                      <polyline points="8 6 2 12 8 18" />
+                    </svg>
+                    <span className="text-2xs font-medium uppercase tracking-wider text-void-accent">
+                      Code Style Profile
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {activeModule.codeStyleSummary && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-void-success" title="Style profile active" />
+                    )}
+                    <svg
+                      width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      strokeWidth="2" className={`text-void-muted transition-transform ${styleExpanded ? 'rotate-180' : ''}`}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </div>
+                </button>
+
+                {styleExpanded && (
+                  <div className="px-3 pb-3 border-t border-void-border/30">
+                    {activeModule.codeStyleSummary ? (
+                      <>
+                        <p className="text-2xs text-void-secondary mt-2 leading-relaxed whitespace-pre-wrap">
+                          {activeModule.codeStyleSummary}
+                        </p>
+                        <p className="text-2xs text-void-muted mt-2 italic">
+                          Attach C++ code to your messages to continuously refine your style profile. The AI will analyze each submission and update this summary.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-2xs text-void-muted mt-2 italic">
+                        No style profile yet. Click the <span className="text-void-accent">&lt;/&gt;</span> button in the chat input and attach C++ code. The AI will analyze your coding style.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -172,6 +223,7 @@ const LearningMode: React.FC = () => {
             : 'Select a module to start...'
           }
           showConversationList={false}
+          showCodeButton={!!activeModule?.isDefault}
         />
       </div>
 

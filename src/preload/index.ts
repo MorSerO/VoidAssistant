@@ -60,6 +60,12 @@ const electronAPI = {
     return () => ipcRenderer.removeListener('shortcut:mode', handler);
   },
 
+  onStyleSummaryUpdated: (callback: (data: { moduleId: string; codeStyleSummary: string }) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { moduleId: string; codeStyleSummary: string }) => callback(data);
+    ipcRenderer.on(IpcChannels.STYLE_SUMMARY_UPDATED, handler);
+    return () => ipcRenderer.removeListener(IpcChannels.STYLE_SUMMARY_UPDATED, handler);
+  },
+
   // === Conversations ===
   getConversations: (mode: AppMode, moduleId?: string): Promise<Conversation[]> =>
     ipcRenderer.invoke(IpcChannels.CONV_GET_ALL, mode, moduleId),

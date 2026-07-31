@@ -109,14 +109,32 @@ export function getRelevantTools(mode: AppMode): ToolDefinition[] {
 
 /**
  * Merge a new code style analysis with an existing summary.
- * Simple strategy: append the new analysis with a separator.
- * A more sophisticated merge (using LLM) can be added later.
+ *
+ * Strategy: Keep both analyses. If the new one overlaps significantly with
+ * the existing one, prioritize the newer, more detailed version.
+ * Append a timestamp to track freshness.
  */
 export function mergeCodeStyleSummary(existing: string | null, newAnalysis: string): string {
-  if (!existing) return newAnalysis;
-  // Take the latest analysis; keep the old as context
-  // In production, could use LLM to merge them
-  return newAnalysis;
+  const now = new Date().toISOString().split('T')[0];
+
+  if (!existing || existing.trim() === '') {
+    return `[Analyzed ${now}] ${newAnalysis.trim()}`;
+  }
+
+  // If the existing already contains very similar content, just update the date
+  // Simple dedup: if Jaccard-ish overlap > 50%, prefer the newer
+  const existingWords = new Set(existing.toLowerCase().split(/\s+/).filter(w => w.length > 3));
+  const newWords = newAnalysis.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const overlap = newWords.filter(w => existingWords.has(w)).length;
+
+  // If significant overlap (>40%), replace with the newer analysis
+  // Otherwise, keep both separated by a divider
+  if (newWords.length > 0 && overlap / newWords.length > 0.4) {
+    return `[Analyzed ${now}] ${newAnalysis.trim()}`;
+  }
+
+  // Accumulate: newer first, then older
+  return `[Analyzed ${now}] ${newAnalysis.trim()}\n\n---\n[Earlier] ${existing}`;
 }
 
 /**

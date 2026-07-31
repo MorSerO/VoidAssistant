@@ -19,6 +19,7 @@ interface ElectronAPI {
   onStreamChunk(callback: (chunk: StreamChunk) => void): () => void;
   onStreamDone(callback: (data: { requestId: string; conversationId: string }) => void): () => void;
   onShortcutMode(callback: (mode: AppMode) => void): () => void;
+  onStyleSummaryUpdated(callback: (data: { moduleId: string; codeStyleSummary: string }) => void): () => void;
 
   getConversations(mode: AppMode, moduleId?: string): Promise<Conversation[]>;
   getMessages(conversationId: string): Promise<Message[]>;

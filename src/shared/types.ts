@@ -232,4 +232,7 @@ export const IpcChannels = {
   // App
   APP_GET_VERSION: 'app:getVersion',
   DIALOG_SELECT_FILE: 'dialog:selectFile',
+
+  // Style summary updates (main → renderer)
+  STYLE_SUMMARY_UPDATED: 'module:styleSummaryUpdated',
 } as const;
