@@ -1,4 +1,4 @@
-import { safeStorage } from 'electron';
+import { safeStorage } from '../electron-access';
 import type { ApiConfig } from '../../shared/types';
 
 /**

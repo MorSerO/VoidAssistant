@@ -1,4 +1,5 @@
-import { ipcMain, BrowserWindow, dialog } from 'electron';
+import { BrowserWindow, ipcMain, dialog } from './electron-access';
+import type { BrowserWindow as BrowserWindowType } from 'electron';
 import { v4 as uuidv4 } from 'uuid';
 import type { ApiConfig, AppMode, SendMessageParams, StreamChunk, Plan, FocusSession, LearningModule } from '../shared/types';
 import { IpcChannels } from '../shared/types';
@@ -26,7 +27,7 @@ import {
 // Track active streaming requests
 const activeStreams = new Map<string, AbortController>();
 
-export function registerAllHandlers(mainWindow: BrowserWindow): void {
+export function registerAllHandlers(mainWindow: BrowserWindowType): void {
   // ============================================================
   // Config Handlers
   // ============================================================

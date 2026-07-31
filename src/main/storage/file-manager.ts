@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { app } from 'electron';
+import { app } from '../electron-access';
 import { v4 as uuidv4 } from 'uuid';
 import * as Diff from 'diff';
 import type { EditProposal } from '../../shared/types';

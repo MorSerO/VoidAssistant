@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { app } from 'electron';
+import { app } from '../electron-access';
 import { v4 as uuidv4 } from 'uuid';
 
 // Type alias for database rows
