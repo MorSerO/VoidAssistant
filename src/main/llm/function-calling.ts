@@ -1,7 +1,8 @@
 import type { ToolCallRequest, ToolCallResult, EditProposal, Plan } from '../../shared/types';
 import { readFileContent, proposeFileEdit, confirmFileEdit, rejectFileEdit } from '../storage/file-manager';
 import { getAllPlanRows, getPlanByIdRow, savePlanRow } from '../storage/database';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
+const uuidv4 = (): string => crypto.randomUUID();
 
 export interface ToolExecutionContext {
   allowedPaths: string[];

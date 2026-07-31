@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain, dialog } from './electron-access';
 import type { BrowserWindow as BrowserWindowType } from 'electron';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
+const uuidv4 = (): string => crypto.randomUUID();
 import type { ApiConfig, AppMode, SendMessageParams, StreamChunk, Plan, FocusSession, LearningModule } from '../shared/types';
 import { IpcChannels } from '../shared/types';
 import {

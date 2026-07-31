@@ -1,4 +1,5 @@
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
+const uuidv4 = (): string => crypto.randomUUID();
 import { recordUsageRow, getUsageForPeriod, getSettingRow, getActiveConfig } from '../storage/database';
 import type { UsageSummary } from '../../shared/types';
 

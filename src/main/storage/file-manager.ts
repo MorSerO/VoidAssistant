@@ -1,7 +1,8 @@
 import fs from 'fs';
 import path from 'path';
 import { app } from '../electron-access';
-import { v4 as uuidv4 } from 'uuid';
+import crypto from 'crypto';
+const uuidv4 = (): string => crypto.randomUUID();
 import * as Diff from 'diff';
 import type { EditProposal } from '../../shared/types';
 
