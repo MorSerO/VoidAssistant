@@ -98,6 +98,9 @@ const ApiConfigForm: React.FC<ApiConfigFormProps> = ({ configId, onBack, onSaved
           <Input
             label="Max Tokens"
             type="number"
+            min={1}
+            max={128000}
+            step={256}
             value={maxTokens}
             onChange={(e) => setMaxTokens(parseInt(e.target.value, 10) || 4096)}
           />

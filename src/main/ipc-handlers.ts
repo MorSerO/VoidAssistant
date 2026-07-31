@@ -51,7 +51,7 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
       apiKey: configData.apiKey || '',
       model: configData.model || '',
       temperature: configData.temperature ?? 0.7,
-      maxTokens: configData.maxTokens ?? 4096,
+      maxTokens: Math.min(128000, Math.max(1, configData.maxTokens ?? 4096)),
       pricing: configData.pricing || { inputPrice: 0, outputPrice: 0 },
       headers: configData.headers || {},
       isActive: configData.isActive ?? false,
@@ -158,8 +158,6 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
       try {
         let assistantContent = '';
         let toolCallMessages: Array<{ role: string; content: string | null; tool_calls?: unknown[]; tool_call_id?: string; name?: string }> = [];
-        // Accumulate all tool calls across rounds for DB persistence
-        let allToolCalls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> = [];
 
         // Main conversation loop (supports tool call roundtrips)
         let currentMessages = conversationMessages;
@@ -229,14 +227,17 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
 
           // If no tool calls, we're done
           if (toolCalls.length === 0) {
-            // Save assistant message
+            // Save assistant message. tool_calls must NOT be attached here:
+            // they were already persisted on the intermediate assistant
+            // message(s), each followed by its tool results. Duplicating them
+            // on the final message would corrupt the assistant → tool sequence
+            // when the conversation is reloaded, causing a 400 from the API.
             if (assistantContent) {
               addMessageRow({
                 id: uuidv4(),
                 conversationId,
                 role: 'assistant',
                 content: assistantContent,
-                toolCalls: allToolCalls.length > 0 ? JSON.stringify(allToolCalls) : undefined,
                 createdAt: Date.now(),
               });
             }
@@ -284,11 +285,24 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
             type: 'function' as const,
             function: { name: tc.name, arguments: tc.arguments },
           }));
-          allToolCalls.push(...roundToolCallDefs);
 
-          // Execute tool calls BEFORE saving the assistant message.
-          // This ensures no dangling assistant(tool_calls) without tool results
-          // if the process is interrupted during tool execution.
+          // Save the assistant message with tool_calls BEFORE executing tools.
+          // The API strictly requires assistant(tool_calls) to precede its tool
+          // messages; persisting them in that order keeps the DB sequence
+          // replayable on the next request. If the process dies during tool
+          // execution, the repair logic in context-manager.ts strips the
+          // dangling tool_calls on reload.
+          if (roundContent || toolCalls.length > 0) {
+            addMessageRow({
+              id: uuidv4(),
+              conversationId,
+              role: 'assistant',
+              content: roundContent || null,
+              toolCalls: JSON.stringify(roundToolCallDefs),
+              createdAt: Date.now(),
+            });
+          }
+
           for (const tc of toolCalls) {
             const result = await executeToolCall(tc, { allowedPaths, moduleId: params.moduleId });
 
@@ -316,18 +330,6 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
               content: result.content,
               tool_call_id: result.toolCallId,
               name: tc.name,
-            });
-          }
-
-          // Now save assistant message — all tool results are guaranteed to exist
-          if (roundContent || toolCalls.length > 0) {
-            addMessageRow({
-              id: uuidv4(),
-              conversationId,
-              role: 'assistant',
-              content: roundContent || null,
-              toolCalls: JSON.stringify(roundToolCallDefs),
-              createdAt: Date.now(),
             });
           }
 

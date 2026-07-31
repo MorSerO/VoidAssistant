@@ -72,6 +72,9 @@ const UsagePanel: React.FC = () => {
           <Input
             label="Token Limit"
             type="number"
+            min={0}
+            max={1000000000}
+            step={100000}
             value={budgetInput}
             onChange={(e) => setBudgetInput(e.target.value)}
             placeholder="e.g. 1000000"

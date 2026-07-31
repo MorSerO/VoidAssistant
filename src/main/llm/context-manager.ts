@@ -94,9 +94,34 @@ export function loadConversationMessages(conversationId: string): Array<{
 
   // Repair: fix corrupted message sequences so the API doesn't reject them.
   //
-  // Repair 1: Filter out orphaned tool messages (tool_call_id doesn't match
-  // any assistant's tool_calls). Do this FIRST so Repair 2's validation is
-  // accurate after orphaned tools are removed.
+  // Repair 1: Strip dangling tool_calls from assistant messages where the
+  // following tool messages don't cover all tool_call_ids (e.g. the process
+  // died after the assistant message was saved but before tool results were).
+  // This runs BEFORE the orphan filter: an assistant message whose tool_calls
+  // have no following tool results turns every matching tool message into an
+  // orphan, and either leftover alone makes the API reject the request with 400.
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
+      const expectedIds = new Set(msg.tool_calls.map(tc => tc.id));
+      for (let j = i + 1; j < messages.length; j++) {
+        const next = messages[j];
+        if (next.role !== 'tool') break;
+        if (next.tool_call_id) expectedIds.delete(next.tool_call_id);
+      }
+      if (expectedIds.size > 0) {
+        console.warn(
+          `[context] Repairing: stripping ${expectedIds.size} dangling tool_calls from assistant, conversation ${conversationId}`
+        );
+        msg.tool_calls = undefined;
+      }
+    }
+  }
+
+  // Repair 2: Filter out orphaned tool messages (tool_call_id doesn't match
+  // any remaining assistant's tool_calls). A tool message without a preceding
+  // assistant(tool_calls) makes OpenAI-compatible APIs reject the whole
+  // request with HTTP 400.
   const validToolCallIds = new Set<string>();
   for (const msg of messages) {
     if (msg.role === 'assistant' && msg.tool_calls) {
@@ -117,24 +142,47 @@ export function loadConversationMessages(conversationId: string): Array<{
     m => !(m.role === 'tool' && m.tool_call_id && !validToolCallIds.has(m.tool_call_id))
   );
 
-  // Repair 2: Strip dangling tool_calls from assistant messages where the
-  // following tool messages don't cover all tool_call_ids.
-  for (let i = 0; i < repaired.length; i++) {
-    const msg = repaired[i];
-    if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
-      const expectedIds = new Set(msg.tool_calls.map(tc => tc.id));
-      for (let j = i + 1; j < repaired.length; j++) {
-        const next = repaired[j];
-        if (next.role !== 'tool') break;
-        if (next.tool_call_id) expectedIds.delete(next.tool_call_id);
-      }
-      if (expectedIds.size > 0) {
-        console.warn(
-          `[context] Repairing: stripping ${expectedIds.size} dangling tool_calls from assistant, conversation ${conversationId}`
-        );
-        msg.tool_calls = undefined;
-      }
+  // Trim: keep the conversation within a safe context budget so requests
+  // aren't rejected with "maximum context length exceeded" (HTTP 400 on many
+  // providers). Tool results (e.g. a whole file read via read_file) can be
+  // huge; without trimming, the history grows until it overflows the model.
+  const MAX_MESSAGE_CHARS = 16000; // cap for any single message (e.g. read_file results)
+  const MAX_TOTAL_CHARS = 48000;   // total conversation budget (~12k-48k tokens depending on language)
+  const MIN_KEEP_MESSAGES = 6;     // always keep the most recent exchange(s)
+
+  // 1. Cap oversized single messages
+  for (const msg of repaired) {
+    if (typeof msg.content === 'string' && msg.content.length > MAX_MESSAGE_CHARS) {
+      console.warn(
+        `[context] Truncating oversized message (${msg.content.length} chars), conversation ${conversationId}`
+      );
+      msg.content = `${msg.content.slice(0, MAX_MESSAGE_CHARS)}\n\n...[truncated; original was ${msg.content.length} chars]`;
     }
+  }
+
+  // 2. Drop the oldest messages until the total fits the budget
+  let totalChars = 0;
+  for (const msg of repaired) {
+    totalChars += typeof msg.content === 'string' ? msg.content.length : 0;
+  }
+  let dropCount = 0;
+  while (dropCount < repaired.length - MIN_KEEP_MESSAGES && totalChars > MAX_TOTAL_CHARS) {
+    totalChars -= typeof repaired[dropCount].content === 'string'
+      ? (repaired[dropCount].content as string).length
+      : 0;
+    dropCount++;
+  }
+  if (dropCount > 0) {
+    console.warn(
+      `[context] Dropping ${dropCount} oldest messages (${totalChars} chars remain), conversation ${conversationId}`
+    );
+    let trimmed = repaired.slice(dropCount);
+    // Never start with a tool message: its assistant(tool_calls) was dropped
+    // with the prefix, and a leading tool message alone causes a 400.
+    while (trimmed.length > 0 && trimmed[0].role === 'tool') {
+      trimmed.shift();
+    }
+    repaired = trimmed;
   }
 
   return repaired;
