@@ -1,6 +1,6 @@
 {
   "name": "void-ai-assistant",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Void AI Assistant - Multi-mode desktop AI agent",
   "main": "dist/main/main/index.js",
   "scripts": {

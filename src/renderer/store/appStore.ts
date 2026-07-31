@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { AppMode, UsageSummary } from '../../shared/types';
+import { useChatStore } from './chatStore';
 
 interface AppState {
   currentMode: AppMode;
@@ -19,7 +20,15 @@ export const useAppStore = create<AppState>((set) => ({
   isSettingsOpen: false,
   isStreaming: false,
 
-  setMode: (mode) => set({ currentMode: mode }),
+  setMode: (mode) => {
+    // Switching modes must never leak another mode's streaming state
+    // (partial reply, reasoning/thinking block, tool calls) into the new
+    // mode's chat: cancel the in-flight stream and clear the chat state.
+    // The new mode's ChatPanel loads its own conversations on mount.
+    useChatStore.getState().cancelStream();
+    useChatStore.getState().startNewConversation();
+    set({ currentMode: mode });
+  },
   setSessionUsage: (usage) => set({ sessionUsage: usage }),
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
   setIsStreaming: (streaming) => set({ isStreaming: streaming }),

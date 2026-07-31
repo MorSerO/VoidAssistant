@@ -60,12 +60,6 @@ const electronAPI = {
     return () => ipcRenderer.removeListener('shortcut:mode', handler);
   },
 
-  onStyleSummaryUpdated: (callback: (data: { moduleId: string; codeStyleSummary: string }) => void): (() => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: { moduleId: string; codeStyleSummary: string }) => callback(data);
-    ipcRenderer.on(IpcChannels.STYLE_SUMMARY_UPDATED, handler);
-    return () => ipcRenderer.removeListener(IpcChannels.STYLE_SUMMARY_UPDATED, handler);
-  },
-
   // === Conversations ===
   getConversations: (mode: AppMode, moduleId?: string): Promise<Conversation[]> =>
     ipcRenderer.invoke(IpcChannels.CONV_GET_ALL, mode, moduleId),
@@ -86,7 +80,7 @@ const electronAPI = {
   createModule: (data: { name: string }): Promise<LearningModule> =>
     ipcRenderer.invoke(IpcChannels.MODULE_CREATE, data),
 
-  updateModule: (id: string, data: { name?: string; noteFiles?: string[]; codeStyleSummary?: string | null }): Promise<void> =>
+  updateModule: (id: string, data: { name?: string; noteFiles?: string[] }): Promise<void> =>
     ipcRenderer.invoke(IpcChannels.MODULE_UPDATE, id, data),
 
   deleteModule: (id: string): Promise<void> =>

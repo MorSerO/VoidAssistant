@@ -26,9 +26,6 @@ export function initDatabase(): void {
 
   // Run migrations
   migrate(db);
-
-  // Ensure default data exists
-  ensureDefaultData(db);
 }
 
 function migrate(db: Database.Database): void {
@@ -141,25 +138,6 @@ function getSchemaVersion(db: Database.Database): number {
 
 function setSchemaVersion(db: Database.Database, version: number): void {
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', ?)").run(String(version));
-}
-
-function ensureDefaultData(db: Database.Database): void {
-  const existing = db.prepare("SELECT id FROM learning_modules WHERE is_default = 1").get();
-  if (!existing) {
-    const now = Date.now();
-    const moduleId = uuidv4();
-    const conversationId = uuidv4();
-
-    db.prepare(`
-      INSERT INTO conversations (id, title, mode, module_id, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(conversationId, 'C++ Learning', 'learning', moduleId, now, now);
-
-    db.prepare(`
-      INSERT INTO learning_modules (id, name, note_files, code_style_summary, conversation_id, is_default, created_at)
-      VALUES (?, ?, '[]', NULL, ?, 1, ?)
-    `).run(moduleId, 'C++', conversationId, now);
-  }
 }
 
 // Helper to safely cast .all() and .get() results
@@ -298,7 +276,7 @@ export function getMessagesByConversation(conversationId: string): DbRow[] {
 // ============================================================
 
 export function getAllModules(): DbRow[] {
-  return allRows(getDb().prepare("SELECT * FROM learning_modules ORDER BY is_default DESC, created_at ASC"));
+  return allRows(getDb().prepare("SELECT * FROM learning_modules ORDER BY created_at ASC"));
 }
 
 export function getModuleById(id: string): DbRow | undefined {
@@ -306,28 +284,27 @@ export function getModuleById(id: string): DbRow | undefined {
 }
 
 export function createModuleRow(data: {
-  id: string; name: string; noteFiles: string; codeStyleSummary: string | null;
-  conversationId: string; isDefault: boolean; createdAt: number;
+  id: string; name: string; noteFiles: string;
+  conversationId: string; createdAt: number;
 }): void {
   getDb().prepare(`
-    INSERT INTO learning_modules (id, name, note_files, code_style_summary, conversation_id, is_default, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(data.id, data.name, data.noteFiles, data.codeStyleSummary, data.conversationId, data.isDefault ? 1 : 0, data.createdAt);
+    INSERT INTO learning_modules (id, name, note_files, conversation_id, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(data.id, data.name, data.noteFiles, data.conversationId, data.createdAt);
 }
 
-export function updateModuleRow(id: string, data: { name?: string; noteFiles?: string; codeStyleSummary?: string | null; }): void {
+export function updateModuleRow(id: string, data: { name?: string; noteFiles?: string; }): void {
   const sets: string[] = [];
   const values: unknown[] = [];
   if (data.name !== undefined) { sets.push('name = ?'); values.push(data.name); }
   if (data.noteFiles !== undefined) { sets.push('note_files = ?'); values.push(data.noteFiles); }
-  if (data.codeStyleSummary !== undefined) { sets.push('code_style_summary = ?'); values.push(data.codeStyleSummary); }
   if (sets.length === 0) return;
   values.push(id);
   getDb().prepare(`UPDATE learning_modules SET ${sets.join(', ')} WHERE id = ?`).run(...values);
 }
 
 export function deleteModuleRow(id: string): void {
-  getDb().prepare("DELETE FROM learning_modules WHERE id = ? AND is_default = 0").run(id);
+  getDb().prepare("DELETE FROM learning_modules WHERE id = ?").run(id);
 }
 
 // ============================================================

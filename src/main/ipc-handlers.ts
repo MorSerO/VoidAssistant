@@ -15,8 +15,8 @@ import {
   getSettingRow, setSettingRow, getAllSettingRows,
 } from './storage/database';
 import { hydrateConfigForUse, prepareConfigForStorage, sanitizeConfigForRenderer } from './storage/key-store';
-import { streamChat, testConnection, simpleCompletion } from './llm/adapter';
-import { buildSystemPrompt, loadConversationMessages, getRelevantTools, mergeCodeStyleSummary, buildStyleAnalysisPrompt } from './llm/context-manager';
+import { streamChat, testConnection } from './llm/adapter';
+import { buildSystemPrompt, loadConversationMessages, getRelevantTools } from './llm/context-manager';
 import { executeToolCall, toolResultToMessage } from './tools/handlers';
 import { recordUsage, getUsageSummary, getUsageHistory, checkBudget } from './usage/monitor';
 import {
@@ -107,16 +107,39 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
     // Create or get conversation
     let conversationId = params.conversationId;
     if (!conversationId) {
-      conversationId = uuidv4();
-      const title = params.message.slice(0, 50) + (params.message.length > 50 ? '...' : '');
-      createConversationRow({
-        id: conversationId,
-        title,
-        mode: params.mode,
-        moduleId: params.moduleId,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
+      if (params.moduleId) {
+        // Learning mode: no conversationId means "start a new conversation"
+        // for this module — each module can have multiple conversations.
+        conversationId = uuidv4();
+        const title = params.message.slice(0, 50) + (params.message.length > 50 ? '...' : '');
+        createConversationRow({
+          id: conversationId,
+          title,
+          mode: params.mode,
+          moduleId: params.moduleId,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      } else {
+        // Diary/planning/focus: reuse this mode's existing conversation so
+        // each mode keeps its own continuous chat history instead of
+        // appending to whatever conversation was last active elsewhere.
+        const existing = getConversationsByMode(params.mode, undefined)[0];
+        if (existing) {
+          conversationId = existing.id as string;
+          touchConversation(conversationId);
+        } else {
+          conversationId = uuidv4();
+          const title = params.message.slice(0, 50) + (params.message.length > 50 ? '...' : '');
+          createConversationRow({
+            id: conversationId,
+            title,
+            mode: params.mode,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
+      }
     } else {
       touchConversation(conversationId);
     }
@@ -128,25 +151,22 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
       conversationId,
       role: 'user',
       content: params.message,
-      codeSnippet: params.codeSnippet,
       createdAt: Date.now(),
     });
 
     // Build context
-    let codeStyleSummary: string | null = null;
     let allowedPaths: string[] = [];
 
     if (params.mode === 'learning' && params.moduleId) {
       const mod = getModuleById(params.moduleId);
       if (mod) {
-        codeStyleSummary = mod.code_style_summary as string | null;
         allowedPaths = mod.note_files ? JSON.parse(mod.note_files as string) : [];
       }
     }
 
     const conversationMessages = loadConversationMessages(conversationId);
     console.log('[ipc] loaded', conversationMessages.length, 'msgs from DB for conversation', conversationId);
-    const systemPrompt = buildSystemPrompt(params.mode, { codeStyleSummary, noteFiles: allowedPaths });
+    const systemPrompt = buildSystemPrompt(params.mode, { noteFiles: allowedPaths });
     const tools = getRelevantTools(params.mode);
 
     // Start streaming (runs in background)
@@ -187,6 +207,13 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
           for await (const chunk of chunks) {
             if (chunk.type === 'text') {
               roundContent += chunk.content || '';
+              mainWindow.webContents.send(IpcChannels.CHAT_STREAM_CHUNK, {
+                ...chunk,
+                requestId,
+              });
+            } else if (chunk.type === 'reasoning') {
+              // Forward to the renderer for display, but do NOT persist it:
+              // reasoning is ephemeral and would bloat the saved history.
               mainWindow.webContents.send(IpcChannels.CHAT_STREAM_CHUNK, {
                 ...chunk,
                 requestId,
@@ -251,29 +278,6 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
                 outputTokens: roundUsage.outputTokens,
                 conversationId,
               });
-            }
-
-            // Code style analysis (background, for C++ module)
-            if (params.codeSnippet && params.mode === 'learning' && params.moduleId) {
-              try {
-                const { system, user } = buildStyleAnalysisPrompt(params.codeSnippet);
-                const analysis = await simpleCompletion(config, system, user, 256);
-                if (analysis && params.moduleId) {
-                  const mod = getModuleById(params.moduleId);
-                  const merged = mergeCodeStyleSummary(
-                    mod?.code_style_summary as string | null,
-                    analysis
-                  );
-                  updateModuleRow(params.moduleId, { codeStyleSummary: merged });
-                  // Notify renderer so the UI can refresh the module list
-                  mainWindow.webContents.send(IpcChannels.STYLE_SUMMARY_UPDATED, {
-                    moduleId: params.moduleId,
-                    codeStyleSummary: merged,
-                  });
-                }
-              } catch {
-                // Style analysis failure is non-critical
-              }
             }
 
             break; // Exit the while loop
@@ -421,7 +425,6 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
       toolCalls: row.tool_calls ? JSON.parse(row.tool_calls as string) : undefined,
       toolCallId: row.tool_call_id as string | undefined,
       toolName: row.tool_name as string | undefined,
-      codeSnippet: row.code_snippet as string | undefined,
       createdAt: row.created_at as number,
     }));
   });
@@ -444,9 +447,7 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
       id: row.id as string,
       name: row.name as string,
       noteFiles: row.note_files ? JSON.parse(row.note_files as string) : [],
-      codeStyleSummary: row.code_style_summary as string | null,
       conversationId: row.conversation_id as string,
-      isDefault: (row.is_default as number) === 1,
       createdAt: row.created_at as number,
     }));
   });
@@ -469,9 +470,7 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
       id: moduleId,
       name: data.name,
       noteFiles: '[]',
-      codeStyleSummary: null,
       conversationId,
-      isDefault: false,
       createdAt: now,
     });
 
@@ -479,18 +478,15 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
       id: moduleId,
       name: data.name,
       noteFiles: [],
-      codeStyleSummary: null,
       conversationId,
-      isDefault: false,
       createdAt: now,
     };
   });
 
-  ipcMain.handle(IpcChannels.MODULE_UPDATE, (_event, id: string, data: { name?: string; noteFiles?: string[]; codeStyleSummary?: string | null }) => {
+  ipcMain.handle(IpcChannels.MODULE_UPDATE, (_event, id: string, data: { name?: string; noteFiles?: string[] }) => {
     updateModuleRow(id, {
       name: data.name,
       noteFiles: data.noteFiles ? JSON.stringify(data.noteFiles) : undefined,
-      codeStyleSummary: data.codeStyleSummary,
     });
   });
 

@@ -19,7 +19,6 @@ interface ElectronAPI {
   onStreamChunk(callback: (chunk: StreamChunk) => void): () => void;
   onStreamDone(callback: (data: { requestId: string; conversationId: string }) => void): () => void;
   onShortcutMode(callback: (mode: AppMode) => void): () => void;
-  onStyleSummaryUpdated(callback: (data: { moduleId: string; codeStyleSummary: string }) => void): () => void;
 
   getConversations(mode: AppMode, moduleId?: string): Promise<Conversation[]>;
   getMessages(conversationId: string): Promise<Message[]>;
@@ -28,7 +27,7 @@ interface ElectronAPI {
 
   getModules(): Promise<LearningModule[]>;
   createModule(data: { name: string }): Promise<LearningModule>;
-  updateModule(id: string, data: { name?: string; noteFiles?: string[]; codeStyleSummary?: string | null }): Promise<void>;
+  updateModule(id: string, data: { name?: string; noteFiles?: string[] }): Promise<void>;
   deleteModule(id: string): Promise<void>;
   bindNoteFile(moduleId: string, filePath: string): Promise<void>;
   unbindNoteFile(moduleId: string, filePath: string): Promise<void>;

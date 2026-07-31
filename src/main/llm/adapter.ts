@@ -217,10 +217,12 @@ export async function* streamChat(
           const delta = parsed.choices?.[0]?.delta;
           const finishReason = parsed.choices?.[0]?.finish_reason;
 
-          // Reasoning content (DeepSeek-R1, o1, etc.)
+          // Reasoning content (DeepSeek-R1, o1, etc.) — emitted as a separate
+          // chunk type so the UI can render it as a collapsible gray block and
+          // so it is never persisted into the conversation history.
           if (delta?.reasoning_content) {
             yield {
-              type: 'text',
+              type: 'reasoning',
               requestId,
               content: delta.reasoning_content,
             };
@@ -359,42 +361,3 @@ export async function testConnection(config: ApiConfig): Promise<{ ok: boolean; 
   }
 }
 
-/**
- * Simple non-streaming completion request (for style analysis, etc.).
- */
-export async function simpleCompletion(
-  config: ApiConfig,
-  systemPrompt: string,
-  userMessage: string,
-  maxTokens?: number
-): Promise<string> {
-  const baseUrl = config.baseUrl.replace(/\/chat\/completions\/?$/i, '').replace(/\/+$/, '');
-  const url = `${baseUrl}/chat/completions`;
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${config.apiKey}`,
-      ...config.headers,
-    },
-    body: JSON.stringify({
-      model: config.model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      max_tokens: maxTokens ?? 512,
-      temperature: 0.3,
-      stream: false,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Completion request failed: ${response.status}`);
-  }
-
-  const data = await response.json() as Record<string, unknown>;
-  const choices = data.choices as Array<{ message: { content: string } }> | undefined;
-  return choices?.[0]?.message?.content || '';
-}

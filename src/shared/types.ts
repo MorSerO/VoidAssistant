@@ -51,7 +51,7 @@ export interface UsageSummary {
 
 // === Streaming ===
 export interface StreamChunk {
-  type: 'text' | 'tool_call' | 'tool_result' | 'done' | 'error';
+  type: 'text' | 'reasoning' | 'tool_call' | 'tool_result' | 'done' | 'error';
   requestId: string;
   content?: string;
   toolCall?: ToolCallRequest;
@@ -84,7 +84,6 @@ export interface Message {
   toolCalls?: ToolCallRequest[];
   toolCallId?: string;
   toolName?: string;
-  codeSnippet?: string; // For C++ code style learning
   createdAt: number;
 }
 
@@ -102,9 +101,7 @@ export interface LearningModule {
   id: string;
   name: string;
   noteFiles: string[];
-  codeStyleSummary: string | null;
   conversationId: string;
-  isDefault: boolean;
   createdAt: number;
 }
 
@@ -154,7 +151,6 @@ export interface SendMessageParams {
   moduleId?: string;
   conversationId?: string;
   message: string;
-  codeSnippet?: string;
 }
 
 // === Tool Definitions ===
@@ -232,7 +228,4 @@ export const IpcChannels = {
   // App
   APP_GET_VERSION: 'app:getVersion',
   DIALOG_SELECT_FILE: 'dialog:selectFile',
-
-  // Style summary updates (main → renderer)
-  STYLE_SUMMARY_UPDATED: 'module:styleSummaryUpdated',
 } as const;

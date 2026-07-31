@@ -83,7 +83,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose }) => {
       {activeTab === 'usage' && <UsagePanel />}
       {activeTab === 'general' && (
         <div className="text-sm text-void-secondary">
-          <p className="mb-4">Void AI Assistant v0.1.0</p>
+          <p className="mb-4">Void AI Assistant v1.0.0</p>
           <p className="mb-2">Keyboard shortcuts:</p>
           <ul className="list-disc list-inside space-y-1 text-xs">
             <li><kbd className="px-1.5 py-0.5 text-2xs bg-void-surface border border-void-border rounded">Ctrl+1</kbd> Learning Mode</li>

@@ -159,16 +159,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isStreaming = fa
             </div>
           )}
 
-          {/* Code snippet (if user attached one) */}
-          {message.codeSnippet && (
-            <div className="mt-2 rounded border border-void-border bg-[#0A0A0A] p-2">
-              <div className="text-2xs text-void-muted mb-1 uppercase tracking-wider">Attached Code</div>
-              <pre className="text-xs font-mono text-void-text whitespace-pre-wrap overflow-x-auto max-h-48">
-                {message.codeSnippet}
-              </pre>
-            </div>
-          )}
-
           {/* Streaming cursor */}
           {isStreaming && (
             <span className="inline-block w-1.5 h-4 bg-void-accent ml-0.5 animate-pulse align-text-bottom" />

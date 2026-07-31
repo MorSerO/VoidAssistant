@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import { useDiaryStore } from '../../store/diaryStore';
-import { useChatStore } from '../../store/chatStore';
 import ChatPanel from '../../components/chat/ChatPanel';
 
 const DiaryMode: React.FC = () => {
@@ -11,7 +10,6 @@ const DiaryMode: React.FC = () => {
   const fetchEntry = useDiaryStore((s) => s.fetchEntry);
   const listEntries = useDiaryStore((s) => s.listEntries);
   const setCurrentDate = useDiaryStore((s) => s.setCurrentDate);
-  const loadConversation = useChatStore((s) => s.loadConversation);
 
   const today = new Date().toISOString().split('T')[0];
 

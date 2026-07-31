@@ -7,6 +7,7 @@ interface ChatState {
   messages: Message[];
   isStreaming: boolean;
   streamingContent: string;
+  streamingReasoning: string;
   pendingToolCalls: Array<{ id: string; name: string; arguments: string }>;
   pendingToolResults: Array<{ toolCallId: string; content: string }>;
   error: string | null;
@@ -15,6 +16,8 @@ interface ChatState {
 
   fetchConversations: (mode: AppMode, moduleId?: string) => Promise<void>;
   loadConversation: (id: string) => Promise<void>;
+  startNewConversation: () => void;
+  deleteConversation: (id: string, mode: AppMode, moduleId?: string) => Promise<void>;
   sendMessage: (params: SendMessageParams) => Promise<void>;
   cancelStream: () => void;
   clearStreamingState: () => void;
@@ -27,6 +30,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isStreaming: false,
   streamingContent: '',
+  streamingReasoning: '',
   pendingToolCalls: [],
   pendingToolResults: [],
   error: null,
@@ -45,10 +49,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
   loadConversation: async (id) => {
     try {
       const messages = await window.electronAPI.getMessages(id);
-      set({ currentConversationId: id, messages, streamingContent: '', pendingToolCalls: [], pendingToolResults: [] });
+      set({ currentConversationId: id, messages, streamingContent: '', streamingReasoning: '', pendingToolCalls: [], pendingToolResults: [] });
     } catch (err: unknown) {
       set({ error: (err as Error).message });
     }
+  },
+
+  startNewConversation: () => set({
+    currentConversationId: null,
+    messages: [],
+    streamingContent: '',
+    streamingReasoning: '',
+    pendingToolCalls: [],
+    pendingToolResults: [],
+    error: null,
+  }),
+
+  deleteConversation: async (id, mode, moduleId) => {
+    await window.electronAPI.deleteConversation(id);
+    await get().fetchConversations(mode, moduleId);
   },
 
   sendMessage: async (params) => {
@@ -67,6 +86,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({
       isStreaming: true,
       streamingContent: '',
+      streamingReasoning: '',
       pendingToolCalls: [],
       pendingToolResults: [],
       error: null,
@@ -77,6 +97,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const unsubChunk = window.electronAPI.onStreamChunk((chunk: StreamChunk) => {
       if (chunk.type === 'text') {
         set(s => ({ streamingContent: s.streamingContent + (chunk.content || '') }));
+      } else if (chunk.type === 'reasoning') {
+        set(s => ({ streamingReasoning: s.streamingReasoning + (chunk.content || '') }));
       } else if (chunk.type === 'tool_call' && chunk.toolCall) {
         set(s => ({ pendingToolCalls: [...s.pendingToolCalls, chunk.toolCall!] }));
       } else if (chunk.type === 'tool_result' && chunk.toolResult) {
@@ -121,11 +143,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       if (!params.conversationId && data.conversationId) {
         set({ currentConversationId: data.conversationId });
+        // Refresh the conversation list so a newly created conversation shows up
+        get().fetchConversations(params.mode, params.moduleId);
       }
 
       set({
         isStreaming: false,
         streamingContent: '',
+        streamingReasoning: '',
         pendingToolCalls: [],
         pendingToolResults: [],
         requestId: null,
@@ -156,7 +181,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (requestId) {
       window.electronAPI.cancelStream(requestId);
     }
-    set({ isStreaming: false, requestId: null });
+    // Also clear any partial output shown so far (text, thinking block,
+    // pending tool calls) — otherwise they linger after stopping.
+    set({
+      isStreaming: false,
+      requestId: null,
+      streamingContent: '',
+      streamingReasoning: '',
+      pendingToolCalls: [],
+      pendingToolResults: [],
+    });
   },
 
   clearStreamingState: () => {
