@@ -145,7 +145,8 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
     }
 
     const conversationMessages = loadConversationMessages(conversationId);
-    const systemPrompt = buildSystemPrompt(params.mode, { codeStyleSummary });
+    console.log('[ipc] loaded', conversationMessages.length, 'msgs from DB for conversation', conversationId);
+    const systemPrompt = buildSystemPrompt(params.mode, { codeStyleSummary, noteFiles: allowedPaths });
     const tools = getRelevantTools(params.mode);
 
     // Start streaming (runs in background)
@@ -157,12 +158,24 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
       try {
         let assistantContent = '';
         let toolCallMessages: Array<{ role: string; content: string | null; tool_calls?: unknown[]; tool_call_id?: string; name?: string }> = [];
+        // Accumulate all tool calls across rounds for DB persistence
+        let allToolCalls: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> = [];
 
         // Main conversation loop (supports tool call roundtrips)
         let currentMessages = conversationMessages;
         let maxRounds = 5;
 
         while (maxRounds-- > 0) {
+          console.log('[ipc] === Round', 5 - maxRounds, '=== currentMessages.length:', currentMessages.length);
+          if (currentMessages.length > 1) {
+            console.log('[ipc] last 3 msgs:', JSON.stringify(currentMessages.slice(-3).map(m => ({
+              role: m.role,
+              hasContent: !!m.content,
+              toolCallIds: m.tool_calls?.map((tc: unknown) => (tc as {id: string}).id),
+              toolCallId: (m as {tool_call_id?: string}).tool_call_id,
+              name: (m as {name?: string}).name,
+            }))));
+          }
           const chunks = streamChat(config, {
             systemPrompt,
             messages: currentMessages,
@@ -212,6 +225,8 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
 
           assistantContent += roundContent;
 
+          console.log('[ipc] round done. toolCalls.length:', toolCalls.length, 'roundContent.length:', roundContent.length);
+
           // If no tool calls, we're done
           if (toolCalls.length === 0) {
             // Save assistant message
@@ -221,9 +236,7 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
                 conversationId,
                 role: 'assistant',
                 content: assistantContent,
-                toolCalls: toolCallMessages.length > 0 ? JSON.stringify(
-                  toolCallMessages.filter(m => m.tool_calls).flatMap(m => m.tool_calls)
-                ) : undefined,
+                toolCalls: allToolCalls.length > 0 ? JSON.stringify(allToolCalls) : undefined,
                 createdAt: Date.now(),
               });
             }
@@ -265,11 +278,21 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
             break; // Exit the while loop
           }
 
-          // Execute tool calls
+          // Save intermediate assistant message (with tool_calls) to DB
+          const roundToolCallDefs = toolCalls.map(tc => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: { name: tc.name, arguments: tc.arguments },
+          }));
+          allToolCalls.push(...roundToolCallDefs);
+
+          // Execute tool calls BEFORE saving the assistant message.
+          // This ensures no dangling assistant(tool_calls) without tool results
+          // if the process is interrupted during tool execution.
           for (const tc of toolCalls) {
             const result = await executeToolCall(tc, { allowedPaths, moduleId: params.moduleId });
 
-            // Save tool message
+            // Save tool message to DB
             addMessageRow({
               id: uuidv4(),
               conversationId,
@@ -293,6 +316,18 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
               content: result.content,
               tool_call_id: result.toolCallId,
               name: tc.name,
+            });
+          }
+
+          // Now save assistant message — all tool results are guaranteed to exist
+          if (roundContent || toolCalls.length > 0) {
+            addMessageRow({
+              id: uuidv4(),
+              conversationId,
+              role: 'assistant',
+              content: roundContent || null,
+              toolCalls: JSON.stringify(roundToolCallDefs),
+              createdAt: Date.now(),
             });
           }
 
@@ -322,6 +357,8 @@ export function registerAllHandlers(mainWindow: BrowserWindowType): void {
                 name: tm.name,
               })),
             ];
+            console.log('[ipc] currentMessages updated, now length:', currentMessages.length);
+            toolCallMessages = [];
           }
         }
 

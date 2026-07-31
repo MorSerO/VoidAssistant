@@ -9,6 +9,7 @@ export function buildSystemPrompt(
   mode: AppMode,
   context?: {
     codeStyleSummary?: string | null;
+    noteFiles?: string[];
     diaryContent?: string;
     focusSession?: { purpose: string; duration: number; rating?: number; note?: string };
     recentFocusSessions?: Array<{ purpose: string; duration: number; rating?: number; timestamp: number }>;
@@ -19,6 +20,9 @@ export function buildSystemPrompt(
       let prompt = 'You are an AI study companion. Help the user understand notes, summarize key concepts, and propose edits to their markdown files only when asked. Use tools to read or suggest changes. Never edit files without explicit user confirmation.';
       if (context?.codeStyleSummary) {
         prompt += `\n\nYou are a C++ expert. The user's coding style summary: ${context.codeStyleSummary}. Mimic this style in any code you provide.`;
+      }
+      if (context?.noteFiles && context.noteFiles.length > 0) {
+        prompt += `\n\nThe following note files are bound to the current learning module. You can read or propose edits to any of them using the read_file or propose_edit tools:\n${context.noteFiles.map(f => `- ${f}`).join('\n')}`;
       }
       return prompt;
     }
@@ -56,7 +60,7 @@ export function loadConversationMessages(conversationId: string): Array<{
   name?: string;
 }> {
   const rows = getMessagesByConversation(conversationId);
-  return rows.map(row => {
+  const messages = rows.map(row => {
     const msg: {
       role: string;
       content: string | null;
@@ -87,6 +91,53 @@ export function loadConversationMessages(conversationId: string): Array<{
 
     return msg;
   });
+
+  // Repair: fix corrupted message sequences so the API doesn't reject them.
+  //
+  // Repair 1: Filter out orphaned tool messages (tool_call_id doesn't match
+  // any assistant's tool_calls). Do this FIRST so Repair 2's validation is
+  // accurate after orphaned tools are removed.
+  const validToolCallIds = new Set<string>();
+  for (const msg of messages) {
+    if (msg.role === 'assistant' && msg.tool_calls) {
+      for (const tc of msg.tool_calls) {
+        validToolCallIds.add(tc.id);
+      }
+    }
+  }
+  const orphanedToolCount = messages.filter(
+    m => m.role === 'tool' && m.tool_call_id && !validToolCallIds.has(m.tool_call_id)
+  ).length;
+  if (orphanedToolCount > 0) {
+    console.warn(
+      `[context] Repairing: filtering ${orphanedToolCount} orphaned tool messages, conversation ${conversationId}`
+    );
+  }
+  let repaired = messages.filter(
+    m => !(m.role === 'tool' && m.tool_call_id && !validToolCallIds.has(m.tool_call_id))
+  );
+
+  // Repair 2: Strip dangling tool_calls from assistant messages where the
+  // following tool messages don't cover all tool_call_ids.
+  for (let i = 0; i < repaired.length; i++) {
+    const msg = repaired[i];
+    if (msg.role === 'assistant' && msg.tool_calls && msg.tool_calls.length > 0) {
+      const expectedIds = new Set(msg.tool_calls.map(tc => tc.id));
+      for (let j = i + 1; j < repaired.length; j++) {
+        const next = repaired[j];
+        if (next.role !== 'tool') break;
+        if (next.tool_call_id) expectedIds.delete(next.tool_call_id);
+      }
+      if (expectedIds.size > 0) {
+        console.warn(
+          `[context] Repairing: stripping ${expectedIds.size} dangling tool_calls from assistant, conversation ${conversationId}`
+        );
+        msg.tool_calls = undefined;
+      }
+    }
+  }
+
+  return repaired;
 }
 
 /**

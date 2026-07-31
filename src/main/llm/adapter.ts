@@ -102,6 +102,10 @@ export async function* streamChat(
     ...config.headers,
   };
 
+  console.log('[adapter] >>> REQUEST to', url, 'model:', config.model);
+  console.log('[adapter] >>> messages:', JSON.stringify(messages.slice(-4), null, 2));
+  console.log('[adapter] >>> hasTools:', !!body.tools, 'toolsCount:', Array.isArray(body.tools) ? body.tools.length : 0);
+
   let response: Response;
   try {
     response = await fetch(url, {
@@ -125,13 +129,46 @@ export async function* streamChat(
       errorBody = await response.text();
     } catch { /* ignore */ }
 
-    // Detect if this is a tools-unsupported error
-    if (response.status === 400 && errorBody.includes('tool') && request.tools?.length) {
+    // Detect if this is a tools-unsupported error (not a message format error)
+    // Only retry without tools if: the model truly doesn't support them AND
+    // the current request messages don't already contain tool calls from prior rounds.
+    const isToolsUnsupportedError =
+      response.status === 400 &&
+      errorBody.includes('tool') &&
+      !errorBody.includes('tool_calls') &&
+      !errorBody.includes('role') &&
+      request.tools?.length;
+    const hasExistingToolMessages = request.messages.some(
+      m => m.role === 'tool' || m.tool_calls || m.tool_call_id
+    );
+
+    if (isToolsUnsupportedError) {
       toolsSupportCache.set(config.id, false);
-      // Retry without tools
-      const { tools, ...restRequest } = request;
-      yield* streamChat(config, restRequest, signal);
+      if (!hasExistingToolMessages) {
+        // Simple case: no tool refs in messages, just strip tools and retry
+        const { tools, ...restRequest } = request;
+        yield* streamChat(config, restRequest, signal);
+        return;
+      }
+      // Messages already contain tool refs from prior rounds — strip them
+      const cleanedMessages = request.messages.map(m => ({
+        role: m.role,
+        content: m.content,
+      })) as ChatRequest['messages'];
+      const { tools: _t, ...restRequest } = request;
+      yield* streamChat(config, { ...restRequest, messages: cleanedMessages }, signal);
       return;
+    }
+
+    // Log any tool-format errors clearly (indicates a message construction bug)
+    if (response.status === 400 && (errorBody.includes('tool_calls') || errorBody.includes('role'))) {
+      console.error('[adapter] Tool message format error:', errorBody.slice(0, 500));
+      console.error('[adapter] Messages sent:', JSON.stringify(request.messages.map(m => ({
+        role: m.role,
+        hasContent: !!m.content,
+        hasToolCalls: !!m.tool_calls,
+        toolCallId: m.tool_call_id,
+      }))));
     }
 
     if (response.status === 401) {
@@ -179,6 +216,15 @@ export async function* streamChat(
           const parsed = JSON.parse(data);
           const delta = parsed.choices?.[0]?.delta;
           const finishReason = parsed.choices?.[0]?.finish_reason;
+
+          // Reasoning content (DeepSeek-R1, o1, etc.)
+          if (delta?.reasoning_content) {
+            yield {
+              type: 'text',
+              requestId,
+              content: delta.reasoning_content,
+            };
+          }
 
           // Text delta
           if (delta?.content) {
